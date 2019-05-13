@@ -1,12 +1,7 @@
-void call(int a,int b)
+int main(int a,float b)
 {
-	int c;
-	c=a+b;
-	return c;
-}
-
-int main()
-{
-	int t;
-	call(2+3,12);
+	int s,b;
+	{
+	float a;
+	}
 }
