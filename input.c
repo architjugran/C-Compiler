@@ -1,7 +1,9 @@
-int main(int a,float b)
+int adder(int a,int b)
 {
-	int s,b;
-	{
-	float a;
-	}
+	return a+b;
+}
+int main()
+{
+	int c;
+	c=adder(3,4);
 }

@@ -1,9 +1,11 @@
 %{ 
-#include "parse.tab.h"
-
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "parse.tab.h"
+#include "line.h"
+int lines;
+void despace(char target[], char input[], int l);
 void print_error();
 %} 
 
@@ -25,15 +27,20 @@ num {nnum}|{pnum}
 {sp}"for"{sp} {return FORT;}
 {sp}"while"{sp} {return WHILET;}
 {sp}"return"{sp} {return RET;}
+{sp}"switch"{sp} {return SWITCHT;}
+{sp}"break"{sp} {return BREAK;}
+{sp}"default"{sp} {return DEFAULT;}
+{sp}"case"{sp} {return CASET;}
 
 
 
 
-{sp}{id}{sp}   {strcpy(yylval.vali,yytext);return ID;}
-{sp}{num}{sp} {strcpy(yylval.vali,yytext);return NUM;}
+{sp}{id}{sp}   {char input[1000]; despace(input,yytext,strlen(yytext));strcpy(yylval.vp.vali,input);return ID;}
+{sp}{num}{sp} {char input[1000]; despace(input,yytext,strlen(yytext));strcpy(yylval.vp.vali,input);return NUM;}
 
 
 {sp}";"{sp}		{return SC;}
+{sp}":"{sp}		{return COLON;}
 {sp}","{sp}		{return COMMA;}
 
 {sp}"="{sp} {return EQ;}
@@ -60,21 +67,28 @@ num {nnum}|{pnum}
 {sp}"{"{sp} {return OCURLY;}
 {sp}"}"{sp} {return CCURLY;}
 
+{sp}"["{sp} {return OSQ;}
+{sp}"]"{sp} {return CSQ;}
 
 
-
-
-
-
-
-
-
-
-\n {}
+\n {lines++;}
+. {}
 %% 
 
 int yywrap(void) {
     return 1;
+}
+
+void despace(char target[], char input[], int l){
+	int start=0, end=l-1;
+	while(input[start]==' ' || input[start]=='\t') start++;
+	while(input[end]==' ' || input[end]=='\t') end--;
+	int y=0;
+	for (int i = start; i <= end; ++i)
+	{
+		target[y++]=input[i];
+	}
+	target[y]='\0';
 }
 
 void print_error()

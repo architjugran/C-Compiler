@@ -1,4 +1,4 @@
-bison -d parse.y
+bison -d --warning=none parse.y
 flex lexical.l
 gcc -c -w lex.yy.c
 gcc -c -w parse.tab.c
