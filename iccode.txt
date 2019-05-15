@@ -3,14 +3,5 @@
 3: t1 = b_1_adder_1
 4: t2 = t0 + t1
 5: func end
-
-7: func begin main
-8: t0 = 3
-9: param t0
-10: t0 = 4
-11: param t0
-12: call adder,3
-13: refparam t0
-14: c_2_main = t0
-15: func end
-
+6: func begin main
+7: func end

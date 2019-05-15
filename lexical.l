@@ -7,6 +7,7 @@
 int lines;
 void despace(char target[], char input[], int l);
 void print_error();
+int y=1;
 %} 
 
 sp [ \t]*
@@ -16,59 +17,76 @@ nnum "-"{pnum}
 num {nnum}|{pnum}
 
 %% 
-{sp}"int"{sp} {return INT;}
-{sp}"float"{sp} {return FLT;}
-{sp}"void"{sp} {return VOID;}
+{sp}"int"{sp} {y=1;return INT;}
+{sp}"float"{sp} {y=1;return FLT;}
+{sp}"void"{sp} {y=1;return VOID;}
 
 
-{sp}"if"{sp} {return IF;}
-{sp}"else"{sp} {return ELSE;}
+{sp}"if"{sp} {y=1;return IF;}
+{sp}"else"{sp} {y=1;return ELSE;}
 
-{sp}"for"{sp} {return FORT;}
-{sp}"while"{sp} {return WHILET;}
-{sp}"return"{sp} {return RET;}
-{sp}"switch"{sp} {return SWITCHT;}
-{sp}"break"{sp} {return BREAK;}
-{sp}"default"{sp} {return DEFAULT;}
-{sp}"case"{sp} {return CASET;}
-
-
+{sp}"for"{sp} {y=1;return FORT;}
+{sp}"while"{sp} {y=1;return WHILET;}
+{sp}"return"{sp} {y=1;return RET;}
+{sp}"switch"{sp} {y=1;return SWITCHT;}
+{sp}"break"{sp} {y=1;return BREAK;}
+{sp}"default"{sp} {y=1;return DEFAULT;}
+{sp}"case"{sp} {y=1;return CASET;}
 
 
-{sp}{id}{sp}   {char input[1000]; despace(input,yytext,strlen(yytext));strcpy(yylval.vp.vali,input);return ID;}
-{sp}{num}{sp} {char input[1000]; despace(input,yytext,strlen(yytext));strcpy(yylval.vp.vali,input);return NUM;}
 
 
-{sp}";"{sp}		{return SC;}
-{sp}":"{sp}		{return COLON;}
-{sp}","{sp}		{return COMMA;}
+{sp}{id}{sp}   {y=1;char input[1000]; despace(input,yytext,strlen(yytext));strcpy(yylval.vp.vali,input);return ID;}
+{sp}{num}{sp} { 
+			   char input[1000]; 
+				despace(input,yytext,strlen(yytext));
+				if(y==0)
+				{
+					if(input[0]=='-')
+					{
+						for(int i=strlen(input)-1;i>=1;i--)
+							unput(input[i]);
+						y=1;
+						return MINUS;
 
-{sp}"="{sp} {return EQ;}
-{sp}"||"{sp} {return OR;}
-{sp}"&&"{sp} {return AND;}
-{sp}"!"{sp} {return NOT;}
+					}
+				}
+				y=0;
+				strcpy(yylval.vp.vali,input);
+				return NUM;
+			}
 
-{sp}"<"{sp} {return LT;}
-{sp}"<="{sp} {return LTE;}
-{sp}">"{sp} {return GT;}
-{sp}">="{sp} {return GTE;}
-{sp}"=="{sp} {return EQEQ;}
-{sp}"!="{sp} {return NEQ;}
 
-{sp}"+"{sp} {return PLUS;}
-{sp}"-"{sp} {return MINUS;}
-{sp}"*"{sp} {return MULT;}
-{sp}"/"{sp} {return DIV;}
-{sp}"%"{sp} {return MOD;}
+{sp}";"{sp}		{y=1;return SC;}
+{sp}":"{sp}		{y=1;return COLON;}
+{sp}","{sp}		{y=1;return COMMA;}
 
-{sp}"("{sp} {return OPT;}
-{sp}")"{sp} {return CPT;}
+{sp}"="{sp} {y=1;return EQ;}
+{sp}"||"{sp} {y=1;return OR;}
+{sp}"&&"{sp} {y=1;return AND;}
+{sp}"!"{sp} {y=1;return NOT;}
 
-{sp}"{"{sp} {return OCURLY;}
-{sp}"}"{sp} {return CCURLY;}
+{sp}"<"{sp} {y=1;return LT;}
+{sp}"<="{sp} {y=1;return LTE;}
+{sp}">"{sp} {y=1;return GT;}
+{sp}">="{sp} {y=1;return GTE;}
+{sp}"=="{sp} {y=1;return EQEQ;}
+{sp}"!="{sp} {y=1;return NEQ;}
 
-{sp}"["{sp} {return OSQ;}
-{sp}"]"{sp} {return CSQ;}
+{sp}"+"{sp} {y=1;return PLUS;}
+{sp}"-"{sp} {y=1;return MINUS;}
+{sp}"*"{sp} {y=1;return MULT;}
+{sp}"/"{sp} {y=1;return DIV;}
+{sp}"%"{sp} {y=1;return MOD;}
+
+{sp}"("{sp} {y=1;return OPT;}
+{sp}")"{sp} {y=1;return CPT;}
+
+{sp}"{"{sp} {y=1;return OCURLY;}
+{sp}"}"{sp} {y=1;return CCURLY;}
+
+{sp}"["{sp} {y=1;return OSQ;}
+{sp}"]"{sp} {y=1;return CSQ;}
 
 
 \n {lines++;}

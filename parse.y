@@ -50,11 +50,12 @@ bool CheckVar (struct varrecord arr[],int size,char finder[],int level);
 void PrintVars(struct varrecord a);
 void PrintFuncs(struct funcrecord a);
 void PrintFuncTable();
-
+int stoi(char*s);
 int nextquad=1;
 
-char vars[1000][1000];
-char types[1000][1000];
+char vars[100][100];
+char types[100][100];
+int sizes[100];
 int totvars=0;
 
 %}
@@ -130,7 +131,7 @@ int totvars=0;
 	} vp;
 };
 
-%type<vp> F START INPUT FUNC_DECL FUNC_HEAD BODY RESULT_ID OPT DECLISTE CPT RESULT  INT FLT VOID DECLIST COMMA DEC TYPE OCURLY SLIST CCURLY MSLIST S VAR_DECL ASSIGN IFELSE FOR WHILE INCRLEVEL FUNC_CALL SC RETURN SWITCH RET COR PARAMLIST PLIST WHILEXP WHILET MWHILE FOREXP FORT MFOR NFOR FORASSIGN IFEXP NIF MIF ELSE L IDS ARRS ARR ID BRLIST OSQ CSQ NUM EQ CAND OR AND CNOT NOT ECOMP LT LTE GT GTE NEQ EQEQ E PLUS MINUS T MULT DIV MOD SWITCHT CASES CASELIST MCASE DEFAULTE DEFAULT COLON CASE CASET NCASE IDTEMP SWITCHET CASETEMP FORBACK1 FORBACK2 CBODY
+%type<vp> F START INPUT FUNC_DECL FUNC_HEAD BODY RESULT_ID OPT DECLISTE CPT RESULT  INT FLT VOID DECLIST COMMA DEC TYPE OCURLY SLIST CCURLY MSLIST S VAR_DECL ASSIGN IFELSE FOR WHILE INCRLEVEL FUNC_CALL SC RETURN SWITCH RET COR PARAMLIST PLIST WHILEXP WHILET MWHILE FOREXP FORT MFOR NFOR FORASSIGN IFEXP NIF MIF ELSE L IDS ARRS ARR ID BRLIST OSQ CSQ NUM EQ CAND OR AND CNOT NOT ECOMP LT LTE GT GTE NEQ EQEQ E PLUS MINUS T MULT DIV MOD SWITCHT CASES CASELIST MCASE DEFAULTE DEFAULT COLON CASE CASET NCASE IDTEMP SWITCHET CASETEMP FORBACK1 FORBACK2 CBODY ARRFUNC LISTFUNC
 %%
 
 START : INPUT
@@ -143,9 +144,9 @@ INPUT : FUNC_DECL INPUT
 FUNC_DECL : FUNC_HEAD BODY { actfuncindex++; globallevel=0;
 							 char printer[1000];
 							 backpatch($2.bplist,$2.bpcount,nextquad);
-							snprintf(printer,999,"func end\n");
+							snprintf(printer,999,"func end");
 							GenQuad(printer);
-							nextquad++;
+							
 }
 		    ;
 FUNC_HEAD : RESULT_ID OPT DECLISTE CPT  {
@@ -203,8 +204,41 @@ DEC : TYPE ID 				{
 								
 							}
 		;
-DEC : TYPE ARR
+DEC : TYPE ARRFUNC 					{
+								int finder;
+								finder = InArr(functable[actfuncindex].paramtable,functable[actfuncindex].paramcount,$2.vali); 
+								if(finder!=-1)
+								{
+									char printer[1000];
+									snprintf(printer,999,"Parameter with name %s already declared.",$2.vali);
+									CallError(printer);
+								}
+								else
+								{
+									struct varrecord new_record;
+									strcpy(new_record.varname,$2.vali);
+									strcpy(new_record.vartype,$1.type);
+									new_record.tag=false;
+									new_record.level = globallevel;
+									new_record.IsArr = true;
+									new_record.dimcount = $2.counter;
+
+									char finalname[1000];
+									snprintf(finalname,999,"%s_%d_%s_%d",new_record.varname,globallevel,functable[actfuncindex].name,functable[actfuncindex].paramcount);
+
+									strcpy(new_record.finalname,finalname);
+
+									functable[actfuncindex].paramtable[functable[actfuncindex].paramcount++]=new_record;
+								}	
+								}
 		;
+ARRFUNC : ID LISTFUNC     {strcpy($$.vali,$1.vali);
+							$$.counter=$2.counter;}
+		;
+
+LISTFUNC : LISTFUNC OSQ CSQ  {$$.counter=$1.counter+1;}
+			| OSQ CSQ     {$$.counter=1;}
+			;
 
 BODY : OCURLY SLIST CCURLY  {
 								int counter=0;
@@ -621,11 +655,15 @@ IFEXP : IF OPT COR CPT  						{
 
 VAR_DECL : TYPE L SC 				{
 										int i;
+										int ct = 1;
 										for(i=0;i<functable[actfuncindex].varcount;i++)
 										{
 											if(!strcmp(functable[actfuncindex].vartable[i].vartype,"-1"))
 											{
 												strcpy(functable[actfuncindex].vartable[i].vartype,$1.type);
+												strcpy(types[totvars-ct],$1.type);
+												ct--;
+
 											}
 										}
 									}		
@@ -642,13 +680,99 @@ L : L COMMA IDS
 ARRS : ARR
 		;
 
-ARR : ID BRLIST
+ARR : ID BRLIST                 {
+				int finder;
+				int checker;
+				finder = InArr(functable[actfuncindex].paramtable,functable[actfuncindex].paramcount,$1.vali); 
+				checker = InArr(functable[actfuncindex].vartable,functable[actfuncindex].varcount,$1.vali);
+				if(finder!=-1 && globallevel==2)
+				{
+					char printer[1000];
+					snprintf(printer,999,"Parameter with name %s already exists",$1.vali);
+					CallError(printer);
+				}
+				else if(checker!=-1 && functable[actfuncindex].vartable[checker].level==globallevel)
+				{
+					char printer[1000];
+					snprintf(printer,999,"Variable with name %s already exists in the current scope.",$1.vali);
+					CallError(printer);
+				}
+				else
+				{
+					strcpy(functable[actfuncindex].vartable[functable[actfuncindex].varcount].varname,$1.vali);
+					strcpy(functable[actfuncindex].vartable[functable[actfuncindex].varcount].vartype,"-1");	
+					functable[actfuncindex].vartable[functable[actfuncindex].varcount].tag=true;
+					functable[actfuncindex].vartable[functable[actfuncindex].varcount].level=globallevel;
+					functable[actfuncindex].vartable[functable[actfuncindex].varcount].IsArr=true;
+
+					char finalname[1000];
+					snprintf(finalname,999,"%s_%d_%s",$1.vali,globallevel,functable[actfuncindex].name);
+					strcpy(vars[totvars],finalname);
+					strcpy(types[totvars],functable[actfuncindex].vartable[functable[actfuncindex].varcount].vartype);
+
+					int prod=1;
+					int i=0;
+					for(i=0;i<funARRctable[actfuncindex].vartable[functable[actfuncindex].varcount].dimcount;i++)
+					{
+						prod *= functable[actfuncindex].vartable[functable[actfuncindex].varcount].dim[i];
+					}
+					sizes[totvars]=prod;
+					totvars++;
+
+					strcpy(functable[actfuncindex].vartable[functable[actfuncindex].varcount].finalname,finalname);
+					functable[actfuncindex].varcount++;
+				}	
+								}
 		;
-BRLIST : BRLIST OSQ NUM CSQ
+BRLIST : BRLIST OSQ NUM CSQ     {
+									int t = strlen($3.vali);
+									int i=0;
+									bool isf=false;
+									for(i=0;i<t;i++)
+									{
+										if($3.vali[i]=='.')
+										{
+										isf=true;
+										break;
+										}
+									}
+									bool isn = ($3.vali[0]=='-');
+									if(isf)
+									{
+									CallError("Array dimensions should be an integer");
+									}
+									if(isn)
+									{
+									CallError("Array dimensions should be an positive integer");
+									}
+
+							functable[actfuncindex].vartable[functable[actfuncindex].varcount].dim[functable[actfuncindex].vartable[functable[actfuncindex].varcount].dimcount++]=stoi($2.vali);
+	
+								}
 		| OSQ NUM CSQ {
-							
+									int t = strlen($2.vali);
+									int i=0;
+									bool isf=false;
+									for(i=0;i<t;i++)
+									{
+										if($2.vali[i]=='.')
+										{
+										isf=true;
+										break;
+										}
+									}
+									bool isn = ($2.vali[0]=='-');
+									if(isf)
+									{
+									CallError("Array dimensions should be an integer");
+									}
+									if(isn)
+									{
+									CallError("Array dimensions should be an positive integer");
+									}
+
 							functable[actfuncindex].vartable[functable[actfuncindex].varcount].dimcount=1;
-							functable[actfuncindex].vartable[functable[actfuncindex].varcount].dim[dimcount-1]=1;
+							functable[actfuncindex].vartable[functable[actfuncindex].varcount].dim[0]=stoi($2.vali);
 
 					  }
 		;
@@ -686,6 +810,7 @@ IDS : ID 	{
 					snprintf(finalname,999,"%s_%d_%s",new_record.varname,globallevel,functable[actfuncindex].name);
 					strcpy(vars[totvars],finalname);
 					strcpy(types[totvars],new_record.vartype);
+					sizes[totvars]=0;
 					totvars++;
 
 					strcpy(new_record.finalname,finalname);
@@ -2224,7 +2349,17 @@ void releasefloat(int i)
 	if(i!=-1)
 	floatreg[i]=false;
 }
-
+int stoi(char*s)
+{
+	int l=strlen(s);
+	int ans=0;
+	int i=0;
+	for(i=0;i<l;i++)
+	{
+	ans=ans*10+(s[i]-48);
+	}
+	return ans;
+}
 int main()
 {
 	FILE*fil=fopen("input.c","r");
@@ -2243,6 +2378,13 @@ int main()
 		printf("Compilation Successful!!\n");
 	else
 		printf("Error in Compilation.\n");
+
+	printf("==============================================\n");
+	printf("Data Vars:\n");
+	for(int i=0;i<totvars;i++)
+	{
+	printf("%s %s %d\n",vars[i],types[i],sizes[i]);
+	}
 
 	return 0;
 }

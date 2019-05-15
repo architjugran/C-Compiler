@@ -5,5 +5,4 @@ int adder(int a,int b)
 int main()
 {
 	int c;
-	c=adder(3,4);
 }
