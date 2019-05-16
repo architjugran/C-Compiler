@@ -1,8 +1,9 @@
-int adder(int a,int b)
-{
-	return a+b;
-}
 int main()
 {
-	int c;
+	float x;
+	x=1;
+	while(x<10)
+	{
+		x=x+1;
+	}
 }

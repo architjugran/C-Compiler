@@ -131,7 +131,7 @@ int totvars=0;
 	} vp;
 };
 
-%type<vp> F START INPUT FUNC_DECL FUNC_HEAD BODY RESULT_ID OPT DECLISTE CPT RESULT  INT FLT VOID DECLIST COMMA DEC TYPE OCURLY SLIST CCURLY MSLIST S VAR_DECL ASSIGN IFELSE FOR WHILE INCRLEVEL FUNC_CALL SC RETURN SWITCH RET COR PARAMLIST PLIST WHILEXP WHILET MWHILE FOREXP FORT MFOR NFOR FORASSIGN IFEXP NIF MIF ELSE L IDS ARRS ARR ID BRLIST OSQ CSQ NUM EQ CAND OR AND CNOT NOT ECOMP LT LTE GT GTE NEQ EQEQ E PLUS MINUS T MULT DIV MOD SWITCHT CASES CASELIST MCASE DEFAULTE DEFAULT COLON CASE CASET NCASE IDTEMP SWITCHET CASETEMP FORBACK1 FORBACK2 CBODY ARRFUNC LISTFUNC
+%type<vp> F START INPUT FUNC_DECL FUNC_HEAD BODY RESULT_ID OPT DECLISTE CPT RESULT  INT FLT VOID DECLIST COMMA DEC TYPE OCURLY SLIST CCURLY MSLIST S VAR_DECL ASSIGN IFELSE FOR WHILE INCRLEVEL FUNC_CALL SC RETURN SWITCH RET COR PARAMLIST PLIST WHILEXP WHILET MWHILE FOREXP FORT MFOR NFOR FORASSIGN IFEXP NIF MIF ELSE L IDS ARRS ARR ID BRLIST OSQ CSQ NUM EQ CAND OR AND CNOT NOT ECOMP LT LTE GT GTE NEQ EQEQ E PLUS MINUS T MULT DIV MOD SWITCHT CASES CASELIST MCASE DEFAULTE DEFAULT COLON CASE CASET NCASE IDTEMP SWITCHET CASETEMP FORBACK1 FORBACK2 CBODY ARRFUNC LISTFUNC CMARK
 %%
 
 START : INPUT
@@ -144,6 +144,9 @@ INPUT : FUNC_DECL INPUT
 FUNC_DECL : FUNC_HEAD BODY { actfuncindex++; globallevel=0;
 							 char printer[1000];
 							 backpatch($2.bplist,$2.bpcount,nextquad);
+							 
+							 
+
 							snprintf(printer,999,"func end");
 							GenQuad(printer);
 							
@@ -326,7 +329,10 @@ S:      VAR_DECL {}
 								}
 							}
 		| FUNC_CALL SC {}
-		| RETURN SC {}
+		| RETURN SC {
+
+
+					}
 		| SWITCH {
 						$$.bpcount=0;
 
@@ -337,8 +343,9 @@ S:      VAR_DECL {}
 						}
 						canbreakcount[canbreak]=0;
 						canbreak--;
-						for(i=0;i<$1.bpcount;i++)
+						for(i=0;i<$1.bpcount;i++){
 							$$.bplist[$$.bpcount++]=$1.bplist[i];
+						}
 						releaseint(switchglobal);
 
 				 }
@@ -361,13 +368,48 @@ RETURN : RET           	{
 							{
 								CallWarning("No return value in non-void function.");
 							}
+							char printer[1000];
+							snprintf(printer,999,"return");
+							GenQuad(printer);
 						}
 		| RET COR       {
 							if(!strcmp(functable[actfuncindex].type,"void"))
 							{
 								CallWarning("Return value in a void function.");
 							}
-							backpatch($2.bplist,$2.bpcount,nextquad);	
+							backpatch($2.bplist,$2.bpcount,nextquad);
+							char printer[1000];
+							if(!strcmp(functable[actfuncindex].type,"float"))
+							{
+								int temp2=$2.tempreg;
+								if(!strcmp($2.type,"int"))
+								{
+									temp2=newfloat();
+									snprintf(printer,999,"f%d = ConvertToFloat(t%d)",temp2,$2.tempreg);
+									releaseint($2.tempreg);
+									GenQuad(printer);
+								}
+								snprintf(printer,999,"return f%d",temp2);
+								GenQuad(printer);
+								releasefloat(temp2);
+								
+							}
+							else
+							{
+								int temp2=$2.tempreg;
+								if(!strcmp($2.type,"float"))
+								{
+									temp2=newint();
+									snprintf(printer,999,"t%d = ConvertToInt(f%d)",temp2,$2.tempreg);
+									releasefloat($2.tempreg);
+									GenQuad(printer);
+								}
+								snprintf(printer,999,"return t%d",temp2);
+								GenQuad(printer);
+								releaseint(temp2);
+
+							}
+
 						}
 		;
 
@@ -712,7 +754,7 @@ ARR : ID BRLIST                 {
 
 					int prod=1;
 					int i=0;
-					for(i=0;i<funARRctable[actfuncindex].vartable[functable[actfuncindex].varcount].dimcount;i++)
+					for(i=0;i<functable[actfuncindex].vartable[functable[actfuncindex].varcount].dimcount;i++)
 					{
 						prod *= functable[actfuncindex].vartable[functable[actfuncindex].varcount].dim[i];
 					}
@@ -1212,7 +1254,7 @@ ECOMP : ECOMP LT E              {
 											releasefloat(gettemp2);
 											releasefloat($3.tempreg);
 										}
-										if(!strcmp($3.type,"int"))
+										else if(!strcmp($3.type,"int"))
 										{
 											int gettemp2;
 											gettemp2 = newfloat();
@@ -1230,6 +1272,20 @@ ECOMP : ECOMP LT E              {
 											GenQuad(printer);
 											releasefloat(gettemp2);
 											releasefloat($1.tempreg);
+										}
+										else
+										{
+											char printer[1000];
+											gettemp = newint();
+											snprintf(printer,999,"t%d = 1",gettemp);
+											GenQuad(printer);
+											
+											snprintf(printer,999,"if(f%d < f%d) goto %d",$1.tempreg,$3.tempreg,nextquad+2);
+											GenQuad(printer);
+											snprintf(printer,999,"t%d = 0",gettemp);
+											GenQuad(printer);
+											releasefloat($1.tempreg);
+											releasefloat($3.tempreg);
 										}
 										
 									
@@ -1281,7 +1337,7 @@ ECOMP : ECOMP LT E              {
 											releasefloat(gettemp2);
 											releasefloat($3.tempreg);
 										}
-										if(!strcmp($3.type,"int"))
+										else if(!strcmp($3.type,"int"))
 										{
 											int gettemp2;
 											gettemp2 = newfloat();
@@ -1299,6 +1355,20 @@ ECOMP : ECOMP LT E              {
 											GenQuad(printer);
 											releasefloat(gettemp2);
 											releasefloat($1.tempreg);
+										}
+										else
+										{
+											char printer[1000];
+											gettemp = newint();
+											snprintf(printer,999,"t%d = 1",gettemp);
+											GenQuad(printer);
+											
+											snprintf(printer,999,"if(f%d <= f%d) goto %d",$1.tempreg,$3.tempreg,nextquad+2);
+											GenQuad(printer);
+											snprintf(printer,999,"t%d = 0",gettemp);
+											GenQuad(printer);
+											releasefloat($1.tempreg);
+											releasefloat($3.tempreg);
 										}
 										
 									
@@ -1351,7 +1421,7 @@ ECOMP : ECOMP LT E              {
 											releasefloat(gettemp2);
 											releasefloat($3.tempreg);
 										}
-										if(!strcmp($3.type,"int"))
+										else if(!strcmp($3.type,"int"))
 										{
 											int gettemp2;
 											gettemp2 = newfloat();
@@ -1370,6 +1440,21 @@ ECOMP : ECOMP LT E              {
 											releasefloat(gettemp2);
 											releasefloat($1.tempreg);
 										}
+										else
+										{
+											char printer[1000];
+											gettemp = newint();
+											snprintf(printer,999,"t%d = 1",gettemp);
+											GenQuad(printer);
+											
+											snprintf(printer,999,"if(f%d > f%d) goto %d",$1.tempreg,$3.tempreg,nextquad+2);
+											GenQuad(printer);
+											snprintf(printer,999,"t%d = 0",gettemp);
+											GenQuad(printer);
+											releasefloat($1.tempreg);
+											releasefloat($3.tempreg);
+										}
+
 										
 									
 									}
@@ -1421,7 +1506,7 @@ ECOMP : ECOMP LT E              {
 											releasefloat(gettemp2);
 											releasefloat($3.tempreg);
 										}
-										if(!strcmp($3.type,"int"))
+										else if(!strcmp($3.type,"int"))
 										{
 											int gettemp2;
 											gettemp2 = newfloat();
@@ -1439,6 +1524,20 @@ ECOMP : ECOMP LT E              {
 											GenQuad(printer);
 											releasefloat(gettemp2);
 											releasefloat($1.tempreg);
+										}
+										else
+										{
+											char printer[1000];
+											gettemp = newint();
+											snprintf(printer,999,"t%d = 1",gettemp);
+											GenQuad(printer);
+											
+											snprintf(printer,999,"if(f%d >= f%d) goto %d",$1.tempreg,$3.tempreg,nextquad+2);
+											GenQuad(printer);
+											snprintf(printer,999,"t%d = 0",gettemp);
+											GenQuad(printer);
+											releasefloat($1.tempreg);
+											releasefloat($3.tempreg);
 										}
 										
 									
@@ -1491,7 +1590,7 @@ ECOMP : ECOMP LT E              {
 											releasefloat(gettemp2);
 											releasefloat($3.tempreg);
 										}
-										if(!strcmp($3.type,"int"))
+										else if(!strcmp($3.type,"int"))
 										{
 											int gettemp2;
 											gettemp2 = newfloat();
@@ -1509,6 +1608,20 @@ ECOMP : ECOMP LT E              {
 											GenQuad(printer);
 											releasefloat(gettemp2);
 											releasefloat($1.tempreg);
+										}
+										else
+										{
+											char printer[1000];
+											gettemp = newint();
+											snprintf(printer,999,"t%d = 1",gettemp);
+											GenQuad(printer);
+											
+											snprintf(printer,999,"if(f%d != f%d) goto %d",$1.tempreg,$3.tempreg,nextquad+2);
+											GenQuad(printer);
+											snprintf(printer,999,"t%d = 0",gettemp);
+											GenQuad(printer);
+											releasefloat($1.tempreg);
+											releasefloat($3.tempreg);
 										}
 										
 									
@@ -1561,7 +1674,7 @@ ECOMP : ECOMP LT E              {
 											releasefloat(gettemp2);
 											releasefloat($3.tempreg);
 										}
-										if(!strcmp($3.type,"int"))
+										else if(!strcmp($3.type,"int"))
 										{
 											int gettemp2;
 											gettemp2 = newfloat();
@@ -1579,6 +1692,20 @@ ECOMP : ECOMP LT E              {
 											GenQuad(printer);
 											releasefloat(gettemp2);
 											releasefloat($1.tempreg);
+										}
+										else
+										{
+											char printer[1000];
+											gettemp = newint();
+											snprintf(printer,999,"t%d = 1",gettemp);
+											GenQuad(printer);
+											
+											snprintf(printer,999,"if(f%d == f%d) goto %d",$1.tempreg,$3.tempreg,nextquad+2);
+											GenQuad(printer);
+											snprintf(printer,999,"t%d = 0",gettemp);
+											GenQuad(printer);
+											releasefloat($1.tempreg);
+											releasefloat($3.tempreg);
 										}
 										
 									
@@ -1640,7 +1767,7 @@ E : E PLUS T                    {
 
 
 										}
-										if(!strcmp($3.type,"int"))
+										else if(!strcmp($3.type,"int"))
 										{
 											int gettemp2;
 											gettemp2 = newfloat();
@@ -1651,11 +1778,20 @@ E : E PLUS T                    {
 
 											gettemp = newfloat();
 
-											snprintf(printer,"f%d = f%d + f%d",gettemp,$1.tempreg,gettemp2);
+											snprintf(printer,999,"f%d = f%d + f%d",gettemp,$1.tempreg,gettemp2);
 											GenQuad(printer);
 											releasefloat(gettemp2);
 											releasefloat($1.tempreg);
 
+										}
+										else
+										{
+											gettemp=newfloat();
+											char printer[1000];
+											snprintf(printer,999,"f%d = f%d + f%d",gettemp,$1.tempreg,$3.tempreg);
+											GenQuad(printer);
+											releasefloat($3.tempreg);
+											releasefloat($1.tempreg);
 										}
 									}
 									if(getcase==2){
@@ -1706,7 +1842,7 @@ E : E PLUS T                    {
 
 
 										}
-										if(!strcmp($3.type,"int"))
+										else if(!strcmp($3.type,"int"))
 										{
 											int gettemp2;
 											gettemp2 = newfloat();
@@ -1717,11 +1853,20 @@ E : E PLUS T                    {
 
 											gettemp = newfloat();
 
-											snprintf(printer,"f%d = f%d - f%d",gettemp,$1.tempreg,gettemp2);
+											snprintf(printer,999,"f%d = f%d - f%d",gettemp,$1.tempreg,gettemp2);
 											GenQuad(printer);
 											releasefloat(gettemp2);
 											releasefloat($1.tempreg);
 
+										}
+										else
+										{
+											gettemp=newfloat();
+											char printer[1000];
+											snprintf(printer,999,"f%d = f%d - f%d",gettemp,$1.tempreg,$3.tempreg);
+											GenQuad(printer);
+											releasefloat($3.tempreg);
+											releasefloat($1.tempreg);
 										}
 									}
 									if(getcase==2){
@@ -1779,7 +1924,7 @@ T : T MULT F 					{
 
 
 										}
-										if(!strcmp($3.type,"int"))
+										else if(!strcmp($3.type,"int"))
 										{
 											int gettemp2;
 											gettemp2 = newfloat();
@@ -1790,11 +1935,20 @@ T : T MULT F 					{
 
 											gettemp = newfloat();
 
-											snprintf(printer,"f%d = f%d * f%d",gettemp,$1.tempreg,gettemp2);
+											snprintf(printer,999,"f%d = f%d * f%d",gettemp,$1.tempreg,gettemp2);
 											GenQuad(printer);
 											releasefloat(gettemp2);
 											releasefloat($1.tempreg);
 
+										}
+										else
+										{
+											gettemp=newfloat();
+											char printer[1000];
+											snprintf(printer,999,"f%d = f%d * f%d",gettemp,$1.tempreg,$3.tempreg);
+											GenQuad(printer);
+											releasefloat($3.tempreg);
+											releasefloat($1.tempreg);
 										}
 									}
 									if(getcase==2){
@@ -1848,7 +2002,7 @@ T : T MULT F 					{
 
 
 										}
-										if(!strcmp($3.type,"int"))
+										else if(!strcmp($3.type,"int"))
 										{
 											int gettemp2;
 											gettemp2 = newfloat();
@@ -1859,11 +2013,20 @@ T : T MULT F 					{
 
 											gettemp = newfloat();
 
-											snprintf(printer,"f%d = f%d / f%d",gettemp,$1.tempreg,gettemp2);
+											snprintf(printer,999,"f%d = f%d / f%d",gettemp,$1.tempreg,gettemp2);
 											GenQuad(printer);
 											releasefloat(gettemp2);
 											releasefloat($1.tempreg);
 
+										}
+										else
+										{
+											gettemp=newfloat();
+											char printer[1000];
+											snprintf(printer,999,"f%d = f%d / f%d",gettemp,$1.tempreg,$3.tempreg);
+											GenQuad(printer);
+											releasefloat($3.tempreg);
+											releasefloat($1.tempreg);
 										}
 									}
 									if(getcase==2){
@@ -1914,7 +2077,7 @@ T : T MULT F 					{
 
 
 										}
-										if(!strcmp($3.type,"int"))
+										else if(!strcmp($3.type,"int"))
 										{
 											int gettemp2;
 											gettemp2 = newfloat();
@@ -1925,11 +2088,20 @@ T : T MULT F 					{
 
 											gettemp = newfloat();
 
-											snprintf(printer,"f%d = f%d % f%d",gettemp,$1.tempreg,gettemp2);
+											snprintf(printer,999,"f%d = f%d % f%d",gettemp,$1.tempreg,gettemp2);
 											GenQuad(printer);
 											releasefloat(gettemp2);
 											releasefloat($1.tempreg);
 
+										}
+										else
+										{
+											gettemp=newfloat();
+											char printer[1000];
+											snprintf(printer,999,"f%d = f%d * f%d",gettemp,$1.tempreg,$3.tempreg);
+											GenQuad(printer);
+											releasefloat($3.tempreg);
+											releasefloat($1.tempreg);
 										}
 									}
 									if(getcase==2){
@@ -2086,8 +2258,10 @@ SWITCH : SWITCHET OCURLY CASES CCURLY 		{
 												
 												$$.bpcount=0;
 												int i;
-												for(i=0;i<$3.bpcount;i++)
+												for(i=0;i<$3.bpcount;i++){
 													$$.bplist[$$.bpcount++]=$3.bplist[i];
+												}
+												
 											}
 		; 
 
@@ -2103,45 +2277,57 @@ SWITCHET : SWITCHT  OPT COR CPT 			{
 			;
 CASES : CASELIST MCASE DEFAULTE {
 									$$.bpcount=0;
-									int i;
-									for(i=0;i<$1.bpcount;i++)
-										$$.bplist[$$.bpcount++]=$1.bplist[i];
+									for(int i=0;i<$1.bpcount2;i++)
+										$$.bplist[$$.bpcount++]=$1.bplist2[i];
 								}
 		| CASELIST				{
 									$$.bpcount=0;
-									int i;
-									for(i=0;i<$1.bpcount;i++)
-										$$.bplist[$$.bpcount++]=$1.bplist[i];
+									for(int i=0;i<$1.bpcount2;i++)
+										$$.bplist[$$.bpcount++]=$1.bplist2[i];
 								}
 		;
 
-DEFAULTE : DEFAULT COLON SLIST
+DEFAULTE : DEFAULT COLON SLIST   {
+									
+								 }
 			;
 
 CASELIST : CASELIST CASE  {
-								$$.bpcount=0;
-								int i;
-								for(i=0;i<$1.bpcount;i++)
-									$$.bplist[$$.bpcount++]=$1.bplist[i];
-								for(i=0;i<$2.bpcount;i++)
-									$$.bplist[$$.bpcount++]=$2.bplist[i];
+							
+								backpatch($1.bplist2,$1.bpcount2,$2.quad);
+								$$.bpcount2=0;
+								for(int i=0;i<$2.bpcount2;i++)
+								{
+									$$.bplist2[$$.bpcount2++]=$2.bplist2[i];
+								}
 						  }
 		   | CASE       {
-		   					$$.bpcount=0;
-							int i;
-							for(i=0;i<$1.bpcount;i++)
-								$$.bplist[$$.bpcount++]=$1.bplist[i];
+		   				
+							
+							$$.bpcount2=0;
+							for(int i=0;i<$1.bpcount2;i++)
+							{
+								$$.bplist2[$$.bpcount2++]=$1.bplist2[i];
+							}
 		   				}
 		   ;
-CASE : CASETEMP CBODY 							{
+CASE : CASETEMP CMARK CBODY 							{
+													
+													
+													$$.bpcount2=0;
+													backpatch($3.bplist,$3.bpcount,nextquad);
+													$$.bplist2[$$.bpcount2++]=nextquad;
+													char printer[1000];
+													snprintf(printer,999,"goto _____");
+													GenQuad(printer);
 													backpatch($1.bplist,$1.bpcount,nextquad);
-													$$.bpcount=0;
-													int i;
-													for(i=0;i<$2.bpcount;i++)
-														$$.bplist[$$.bpcount++]=$2.bplist[i];
+
+													
+													$$.quad=$2.quad;
 												}
 		;
 
+CMARK : {$$.quad=nextquad;};
 CASETEMP : CASET NCASE COR COLON      						{
 	
 																if(strcmp($3.type,"int"))
@@ -2245,7 +2431,8 @@ void backpatch(int* arr, int len, int x)
 
 			}
 
-    
+	
+
 	fseek(fp,0,0);
 	int currLineNumber = 1;
 	for (int i = 0; i < len; ++i)

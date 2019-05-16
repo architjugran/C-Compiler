@@ -1,12 +1,17 @@
 #include<stdio.h>
-int adder(int a,int b)
+void adder(int a[][10][10])
 {
-	return a+b;
+	printf("%d\n",a[2][3][1]);
 }
 
 int main()
 {
-	int a[12];
+	int x=1;
+	switch(x)
+	{
+		case 1: printf("dd");
+		case 2: printf("bb");
+		case 3: printf("cc");
 
-	a[1*2.0]=1;
+	}
 }
