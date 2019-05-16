@@ -141,7 +141,9 @@ INPUT : FUNC_DECL INPUT
 		| FUNC_DECL
 		;
 
-FUNC_DECL : FUNC_HEAD BODY { actfuncindex++; globallevel=0;
+FUNC_DECL : FUNC_HEAD BODY {
+							actfuncindex++;  
+							globallevel=0;
 							 char printer[1000];
 							 backpatch($2.bplist,$2.bpcount,nextquad);
 							 
@@ -454,7 +456,7 @@ FUNC_CALL : IDTEMP OPT PARAMLIST CPT {
 IDTEMP : ID 				{
 								int get=-1;
 								int i=0;
-								for(i=0;i<actfuncindex;i++)
+								for(i=0;i<actfuncindex+1;i++)
 								{
 									if(!strcmp(functable[i].name,$1.vali))
 									{
@@ -2069,7 +2071,7 @@ T : T MULT F 					{
 											releaseint($1.tempreg);
 
 											gettemp = newfloat();
-											snprintf(printer,999,"f%d = f%d % f%d",gettemp,gettemp2,$3.tempreg);
+											snprintf(printer,999,"f%d = f%d %% f%d",gettemp,gettemp2,$3.tempreg);
 											GenQuad(printer);
 											releasefloat(gettemp2);
 											releasefloat($3.tempreg);
@@ -2088,7 +2090,7 @@ T : T MULT F 					{
 
 											gettemp = newfloat();
 
-											snprintf(printer,999,"f%d = f%d % f%d",gettemp,$1.tempreg,gettemp2);
+											snprintf(printer,999,"f%d = f%d %% f%d",gettemp,$1.tempreg,gettemp2);
 											GenQuad(printer);
 											releasefloat(gettemp2);
 											releasefloat($1.tempreg);
@@ -2098,7 +2100,7 @@ T : T MULT F 					{
 										{
 											gettemp=newfloat();
 											char printer[1000];
-											snprintf(printer,999,"f%d = f%d * f%d",gettemp,$1.tempreg,$3.tempreg);
+											snprintf(printer,999,"f%d = f%d %% f%d",gettemp,$1.tempreg,$3.tempreg);
 											GenQuad(printer);
 											releasefloat($3.tempreg);
 											releasefloat($1.tempreg);
@@ -2109,7 +2111,7 @@ T : T MULT F 					{
 										gettemp = newint();
 										char printer[1000];
 
-										snprintf(printer,999,"t%d = t%d % t%d",gettemp,$1.tempreg,$3.tempreg);
+										snprintf(printer,999,"t%d = t%d %% t%d",gettemp,$1.tempreg,$3.tempreg);
 										GenQuad(printer);
 										releaseint($3.tempreg);
 										releaseint($1.tempreg);
@@ -2131,9 +2133,9 @@ F : ID 							{
 									int pfind = InArr(functable[actfuncindex].paramtable,functable[actfuncindex].paramcount,$1.vali);
 									if(find==-1 && pfind==-1)
 									{
-										char printer[1000];
-										snprintf(printer,999,"No such variable called %s exists",$1.vali);
-										CallError(printer);
+										char printer1[1000];
+										snprintf(printer1,999,"No such variable called %s exists",$1.vali);
+										CallError(printer1);
 										strcpy($$.type,"errortype");
 
 									}
@@ -2276,9 +2278,15 @@ SWITCHET : SWITCHT  OPT COR CPT 			{
 											}
 			;
 CASES : CASELIST MCASE DEFAULTE {
+									backpatch($1.bplist2,$1.bpcount2,$2.quad);
 									$$.bpcount=0;
-									for(int i=0;i<$1.bpcount2;i++)
-										$$.bplist[$$.bpcount++]=$1.bplist2[i];
+								
+
+									for(int i=0;i<$3.bpcount;i++)
+									{
+										$$.bplist[$$.bpcount++]=$3.bplist[i];
+									}
+
 								}
 		| CASELIST				{
 									$$.bpcount=0;
@@ -2288,6 +2296,11 @@ CASES : CASELIST MCASE DEFAULTE {
 		;
 
 DEFAULTE : DEFAULT COLON SLIST   {
+									$$.bpcount=0;
+									for(int i=0;i<$3.bpcount;i++)
+									{
+										$$.bplist[$$.bpcount++]=$3.bplist[i];
+									}
 									
 								 }
 			;
@@ -2354,7 +2367,7 @@ CBODY : SLIST   {
 						$$.bplist[$$.bpcount++]=$1.bplist[i];
 				}
 		;
-MCASE : ; 
+MCASE : {$$.quad=nextquad;}; 
 NCASE : ; 
 
 

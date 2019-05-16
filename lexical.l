@@ -36,7 +36,7 @@ num {nnum}|{pnum}
 
 
 
-{sp}{id}{sp}   {y=1;char input[1000]; despace(input,yytext,strlen(yytext));strcpy(yylval.vp.vali,input);return ID;}
+{sp}{id}{sp}   {y=0;char input[1000]; despace(input,yytext,strlen(yytext));strcpy(yylval.vp.vali,input);return ID;}
 {sp}{num}{sp} { 
 			   char input[1000]; 
 				despace(input,yytext,strlen(yytext));
@@ -80,7 +80,7 @@ num {nnum}|{pnum}
 {sp}"%"{sp} {y=1;return MOD;}
 
 {sp}"("{sp} {y=1;return OPT;}
-{sp}")"{sp} {y=1;return CPT;}
+{sp}")"{sp} {y=0;return CPT;}
 
 {sp}"{"{sp} {y=1;return OCURLY;}
 {sp}"}"{sp} {y=1;return CCURLY;}
