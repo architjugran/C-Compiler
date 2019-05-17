@@ -20,6 +20,8 @@ num {nnum}|{pnum}
 {sp}"int"{sp} {y=1;return INT;}
 {sp}"float"{sp} {y=1;return FLT;}
 {sp}"void"{sp} {y=1;return VOID;}
+{sp}"printf"{sp} {y=1;return PRINT;}
+
 
 
 {sp}"if"{sp} {y=1;return IF;}

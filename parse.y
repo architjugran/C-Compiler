@@ -11,7 +11,8 @@ void yyerror(char *s);
 bool intreg[10];
 bool floatreg[10];
 int switchglobal;
-FILE *fp;
+FILE*fp;
+FILE*fil;
 int canbreakarr[10][20];
 int canbreakcount[10];
 struct varrecord
@@ -25,6 +26,7 @@ struct varrecord
 	bool IsArr;
 	int dimcount;
 	int dim[100];
+	int moddim[100];
 };
 struct funcrecord
 {
@@ -64,6 +66,7 @@ int totvars=0;
 
 
 %token	SELECT
+%token	PRINT
 %token	INT
 %token	FLT
 %token	ID
@@ -117,10 +120,16 @@ int totvars=0;
   struct attributes{
   	char vali[1000];
 	char type[1000];
+	
+	int arr;
+	int ind;
+
 	int counter;
 	int countor;
 	int countand;
 	bool caseallow;
+	bool isarray;
+
 	int bplist[1000];
 	int bpcount;
 	int tempreg;
@@ -131,7 +140,7 @@ int totvars=0;
 	} vp;
 };
 
-%type<vp> F START INPUT FUNC_DECL FUNC_HEAD BODY RESULT_ID OPT DECLISTE CPT RESULT  INT FLT VOID DECLIST COMMA DEC TYPE OCURLY SLIST CCURLY MSLIST S VAR_DECL ASSIGN IFELSE FOR WHILE INCRLEVEL FUNC_CALL SC RETURN SWITCH RET COR PARAMLIST PLIST WHILEXP WHILET MWHILE FOREXP FORT MFOR NFOR FORASSIGN IFEXP NIF MIF ELSE L IDS ARRS ARR ID BRLIST OSQ CSQ NUM EQ CAND OR AND CNOT NOT ECOMP LT LTE GT GTE NEQ EQEQ E PLUS MINUS T MULT DIV MOD SWITCHT CASES CASELIST MCASE DEFAULTE DEFAULT COLON CASE CASET NCASE IDTEMP SWITCHET CASETEMP FORBACK1 FORBACK2 CBODY ARRFUNC LISTFUNC CMARK
+%type<vp> F START INPUT FUNC_DECL FUNC_HEAD BODY RESULT_ID OPT DECLISTE CPT RESULT  INT FLT VOID DECLIST COMMA DEC TYPE OCURLY SLIST CCURLY MSLIST S VAR_DECL ASSIGN IFELSE FOR WHILE INCRLEVEL FUNC_CALL SC RETURN SWITCH RET COR PARAMLIST PLIST WHILEXP WHILET MWHILE FOREXP FORT MFOR NFOR FORASSIGN IFEXP NIF MIF ELSE L IDS ARRS ARR ID BRLIST OSQ CSQ NUM EQ CAND OR AND CNOT NOT ECOMP LT LTE GT GTE NEQ EQEQ E PLUS MINUS T MULT DIV MOD SWITCHT CASES CASELIST MCASE DEFAULTE DEFAULT COLON CASE CASET NCASE IDTEMP SWITCHET CASETEMP FORBACK1 FORBACK2 CBODY ARRFUNC LISTFUNC CMARK ARRF ARRFLIST
 %%
 
 START : INPUT
@@ -361,6 +370,26 @@ S:      VAR_DECL {}
 								canbreakarr[canbreak][canbreakcount[canbreak]++]=nextquad;
 								GenQuad(printer);
 							}
+		| PRINT OPT COR CPT  SC      {
+								char printer[1000];
+								backpatch($3.bplist,$3.bpcount,nextquad);
+								if(!strcmp($3.type,"errortype"))
+								{
+									CallError("Some error while calling print.");
+								}
+								else if(!strcmp($3.type,"int"))
+								{
+									snprintf(printer,999,"print(t%d)",$3.tempreg); 
+									GenQuad(printer);
+									releaseint($3.tempreg);
+								}
+								else if(!strcmp($3.type,"float"))
+								{
+									snprintf(printer,999,"print(f%d)",$3.tempreg); 
+									GenQuad(printer);
+									releasefloat($3.tempreg);
+								}
+							}
 		; 
 
 INCRLEVEL :  {globallevel++;}
@@ -435,6 +464,8 @@ FUNC_CALL : IDTEMP OPT PARAMLIST CPT {
 										snprintf(printer,999,"call %s,%d",$1.vali,$3.counter+1);
 										GenQuad(printer);
 										int gettemp;
+										if(callfuncindex!=-1)
+										{
 										if(!strcmp(functable[callfuncindex].type,"int"))
 										{	
 											gettemp=newint();
@@ -449,7 +480,9 @@ FUNC_CALL : IDTEMP OPT PARAMLIST CPT {
 										}
 										else
 											gettemp=-1;
+
 										$$.tempreg=gettemp;
+										}
 
 									 }
 			;
@@ -488,31 +521,99 @@ PARAMLIST : PLIST 		{
 PLIST : PLIST COMMA COR {
 							$$.counter++;
 							backpatch($3.bplist,$3.bpcount,nextquad);
+							char checktype[100];
+							if(callfuncindex!=-1)
+							strcpy(checktype,functable[callfuncindex].paramtable[$$.counter-1].vartype);
+							else{
+							strcpy(checktype,"errortype");
+							}
+
 							char printer[1000];
-							if(!strcmp($3.type,"int")){
-							snprintf(printer,999,"param t%d",$3.tempreg);
-							releaseint($3.tempreg);
+							if(!strcmp($3.type,"int"))
+							{
+								if(!strcmp(checktype,"float"))
+								{
+									int gettemp = newfloat();
+									
+									snprintf(printer,999,"f%d = ConvertToFloat(t%d)",gettemp,$3.tempreg);
+									GenQuad(printer);
+									releaseint($3.tempreg);
+									snprintf(printer,999,"param f%d",gettemp);
+									releasefloat(gettemp);
+
+								}
+								else
+								{
+								snprintf(printer,999,"param t%d",$3.tempreg);
+								releaseint($3.tempreg);
+								}
 							}
-							if(!strcmp($3.type,"float")){
-							snprintf(printer,999,"param f%d",$3.tempreg);
-							releasefloat($3.tempreg);
+							if(!strcmp($3.type,"float"))
+							{
+								if(!strcmp(checktype,"int"))
+								{
+									int gettemp = newint();
+									snprintf(printer,999,"t%d = ConvertToInt(f%d)",gettemp,$3.tempreg);
+									GenQuad(printer);
+									releasefloat($3.tempreg);
+									snprintf(printer,999,"param t%d",gettemp);
+									releaseint(gettemp);
+								}
+								else
+								{
+								snprintf(printer,999,"param f%d",$3.tempreg);
+								releasefloat($3.tempreg);
+								}	
 							}
+
 							GenQuad(printer);
 
 						}
 		| COR 			{
 							$$.counter=1;
 							backpatch($1.bplist,$1.bpcount,nextquad);
+
+							char checktype[100];
+							if(callfuncindex!=-1)
+							strcpy(checktype,functable[callfuncindex].paramtable[$$.counter-1].vartype);
+							else
+							strcpy(checktype,"errortype");
 							char printer[1000];
 							if(!strcmp($1.type,"int"))
 							{
+								if(!strcmp(checktype,"float"))
+								{
+									int gettemp = newfloat();
+									
+									snprintf(printer,999,"f%d = ConvertToFloat(t%d)",gettemp,$1.tempreg);
+									GenQuad(printer);
+									releaseint($1.tempreg);
+									snprintf(printer,999,"param f%d",gettemp);
+									releasefloat(gettemp);
+
+								}
+								else
+								{
 								snprintf(printer,999,"param t%d",$1.tempreg);
 								releaseint($1.tempreg);
+								}
 							}
 							if(!strcmp($1.type,"float"))
 							{
+								if(!strcmp(checktype,"int"))
+								{
+									int gettemp = newint();
+									snprintf(printer,999,"t%d = ConvertToInt(f%d)",gettemp,$1.tempreg);
+									GenQuad(printer);
+									releasefloat($1.tempreg);
+									snprintf(printer,999,"param t%d",gettemp);
+									releaseint(gettemp);
+								}
+								else
+								{
 								snprintf(printer,999,"param f%d",$1.tempreg);
-								releasefloat($1.tempreg);	
+								releasefloat($1.tempreg);
+								}	
 							}
 							GenQuad(printer);
 
@@ -754,6 +855,14 @@ ARR : ID BRLIST                 {
 					strcpy(vars[totvars],finalname);
 					strcpy(types[totvars],functable[actfuncindex].vartable[functable[actfuncindex].varcount].vartype);
 
+					int store = functable[actfuncindex].vartable[functable[actfuncindex].varcount].dimcount;
+
+					functable[actfuncindex].vartable[functable[actfuncindex].varcount].moddim[store-1]=1;
+					for(int j=store-2;j>=0;j--)
+					{
+						functable[actfuncindex].vartable[functable[actfuncindex].varcount].moddim[j] = functable[actfuncindex].vartable[functable[actfuncindex].varcount].moddim[j+1] * functable[actfuncindex].vartable[functable[actfuncindex].varcount].dim[j+1];
+					}
+
 					int prod=1;
 					int i=0;
 					for(i=0;i<functable[actfuncindex].vartable[functable[actfuncindex].varcount].dimcount;i++)
@@ -762,6 +871,8 @@ ARR : ID BRLIST                 {
 					}
 					sizes[totvars]=prod;
 					totvars++;
+
+
 
 					strcpy(functable[actfuncindex].vartable[functable[actfuncindex].varcount].finalname,finalname);
 					functable[actfuncindex].varcount++;
@@ -790,7 +901,7 @@ BRLIST : BRLIST OSQ NUM CSQ     {
 									CallError("Array dimensions should be an positive integer");
 									}
 
-							functable[actfuncindex].vartable[functable[actfuncindex].varcount].dim[functable[actfuncindex].vartable[functable[actfuncindex].varcount].dimcount++]=stoi($2.vali);
+							functable[actfuncindex].vartable[functable[actfuncindex].varcount].dim[functable[actfuncindex].vartable[functable[actfuncindex].varcount].dimcount++]=stoi($3.vali);
 	
 								}
 		| OSQ NUM CSQ {
@@ -944,8 +1055,71 @@ FORASSIGN : ID EQ COR       {
 								}
 
 							}
-			| ARR EQ COR    {
+			| ARRF EQ COR    {
 								backpatch($3.bplist,$3.bpcount,nextquad);
+									if($1.arr!=-1 && $1.ind!=-1)
+									{
+										if($3.tempreg==-1)
+										{
+											CallError("Void function does not return anything.");
+										}
+										else if($3.tempreg==-2)
+										{
+									CallError("Some error in assignment.");
+										
+										}
+										else
+										{
+											char printer[1000];
+											if(!strcmp($3.type,"int"))
+											{
+												if(!strcmp($1.type,"int"))
+												{
+													snprintf(printer,999,"t%d[t%d] = t%d",$1.arr,$1.ind,$3.tempreg);
+													releaseint($3.tempreg);
+
+												}
+												else
+												{
+													int gettemp=newfloat();
+													snprintf(printer,999,"f%d = ConvertToFloat(t%d)",gettemp,$3.tempreg);
+													GenQuad(printer);
+													releaseint($3.tempreg);
+													
+										
+													snprintf(printer,999,"t%d[t%d] = f%d",$1.arr,$1.ind,gettemp);
+
+													releasefloat(gettemp);
+												}
+											}
+											if(!strcmp($3.type,"float"))
+											{
+												if(!strcmp($1.type,"float"))
+												{
+													
+													snprintf(printer,999,"t%d[t%d] = f%d",$1.arr,$1.ind,$3.tempreg);
+
+													releasefloat($3.tempreg);
+
+												}
+												else
+												{
+													int gettemp=newint();
+													snprintf(printer,999,"t%d = ConvertToInt(f%d)",gettemp,$3.tempreg);
+													GenQuad(printer);
+													releasefloat($3.tempreg);
+												
+													snprintf(printer,999,"t%d[t%d] = t%d",$1.arr,$1.ind,gettemp);
+
+													releaseint(gettemp);
+
+												}										
+											}
+										GenQuad(printer);
+										releaseint($1.arr);
+										releaseint($1.ind);
+									}
+							}
 							}
 			;
 ASSIGN : ID EQ COR SC       {
@@ -969,6 +1143,10 @@ ASSIGN : ID EQ COR SC       {
 								if($3.tempreg==-1)
 								{
 									CallError("Void function does not return anything.");
+								}
+								else if($3.tempreg==-2)
+								{
+									CallError("Some error in assignment.");
 								}
 								else
 								{
@@ -1027,8 +1205,71 @@ ASSIGN : ID EQ COR SC       {
 								
 
 							}
-		| ARR EQ COR SC     {
+		| ARRF EQ COR SC     {
 									backpatch($3.bplist,$3.bpcount,nextquad);
+									if($1.arr!=-1 && $1.ind!=-1)
+									{
+										if($3.tempreg==-1)
+										{
+											CallError("Void function does not return anything.");
+										}
+										else if($3.tempreg==-2)
+										{
+									CallError("Some error in assignment.");
+										
+										}
+										else
+										{
+											char printer[1000];
+											if(!strcmp($3.type,"int"))
+											{
+												if(!strcmp($1.type,"int"))
+												{
+													snprintf(printer,999,"t%d[t%d] = t%d",$1.arr,$1.ind,$3.tempreg);
+													releaseint($3.tempreg);
+
+												}
+												else
+												{
+													int gettemp=newfloat();
+													snprintf(printer,999,"f%d = ConvertToFloat(t%d)",gettemp,$3.tempreg);
+													GenQuad(printer);
+													releaseint($3.tempreg);
+													
+										
+													snprintf(printer,999,"t%d[t%d] = f%d",$1.arr,$1.ind,gettemp);
+
+													releasefloat(gettemp);
+												}
+											}
+											if(!strcmp($3.type,"float"))
+											{
+												if(!strcmp($1.type,"float"))
+												{
+													
+													snprintf(printer,999,"t%d[t%d] = f%d",$1.arr,$1.ind,$3.tempreg);
+
+													releasefloat($3.tempreg);
+
+												}
+												else
+												{
+													int gettemp=newint();
+													snprintf(printer,999,"t%d = ConvertToInt(f%d)",gettemp,$3.tempreg);
+													GenQuad(printer);
+													releasefloat($3.tempreg);
+												
+													snprintf(printer,999,"t%d[t%d] = t%d",$1.arr,$1.ind,gettemp);
+
+													releaseint(gettemp);
+
+												}										
+											}
+										GenQuad(printer);
+										releaseint($1.arr);
+										releaseint($1.ind);
+									}
+							}
 							}
 		;
 
@@ -1087,6 +1328,8 @@ COR	: COR OR CAND               {
 									snprintf(printer,999,"t%d = 1",$1.tempreg);
 									GenQuad(printer);
 									snprintf(printer,999,"goto _____");
+									$$.bpcount=0;
+
 									for(int i=0;i<$1.bpcount;i++)
 									{
 										$$.bplist[$$.bpcount++]=$1.bplist[i];
@@ -1166,6 +1409,7 @@ CAND : CAND AND CNOT  			{
 									snprintf(printer,999,"t%d = 0",$1.tempreg);
 									GenQuad(printer);
 									snprintf(printer,999,"goto _____");
+									$$.bpcount=0;
 									for(int i=0;i<$1.bpcount;i++)
 									{
 										$$.bplist[$$.bpcount++]=$1.bplist[i];
@@ -2119,12 +2363,14 @@ T : T MULT F 					{
 									}
 									$$.tempreg = gettemp;
 									$$.caseallow=$1.caseallow && $3.caseallow;
+
 								}
 
 	| F 						{
 									strcpy($$.type,$1.type);
 									$$.tempreg=$1.tempreg;
 									$$.caseallow=$1.caseallow;
+
 
 								}
 	;
@@ -2141,6 +2387,11 @@ F : ID 							{
 									}
 									else
 									{
+										if(find!=-1 && functable[actfuncindex].vartable[find].dimcount>0)
+										{
+											CallError("Arrays can't be used directly like this.");
+										}
+
 										int gettemp;
 
 										if(find!=-1)
@@ -2234,6 +2485,7 @@ F : ID 							{
 									$$.caseallow=true;
 
 
+
 								}
 	| FUNC_CALL 				{
 									strcpy($$.type,$1.type);
@@ -2241,20 +2493,141 @@ F : ID 							{
 									$$.caseallow=false;
 
 
+
 								}     
 	| OPT COR CPT 				{
 									strcpy($$.type,$2.type);
 									$$.tempreg=$2.tempreg;
+
 									$$.caseallow=$2.caseallow;
 									backpatch($2.bplist,$2.bpcount,nextquad);
 
 
 								}
-	| ARR  						{
+	| ARRF  					{
+									int tempreg=-2;
+									char printer[1000];
+
+									if($1.arr!=-1 && $1.ind!=-1)
+									{
+										if(!strcmp($1.type,"int"))
+										{
+											tempreg = newint();
+											snprintf(printer,999,"t%d = t%d[t%d]",tempreg,$1.arr,$1.ind);
+											GenQuad(printer);
+											releaseint($1.arr);
+											releaseint($1.ind);
+										}
+										else if(!strcmp($1.type,"float"))
+										{
+											tempreg = newfloat();
+											snprintf(printer,999,"f%d = t%d[t%d]",tempreg,$1.arr,$1.ind);
+											GenQuad(printer);
+											releaseint($1.arr);
+											releaseint($1.ind);
+										}
+									}
+									strcpy($$.type,$1.type);
+									$$.tempreg=tempreg;
 									$$.caseallow=false;
+
 								}
 	;
 
+
+ARRF : ID ARRFLIST 				{
+									$$.arr=-1;
+									$$.ind=-1;
+									strcpy($$.type,"errortype");
+
+
+									int find = InArr(functable[actfuncindex].vartable,functable[actfuncindex].varcount,$1.vali);
+									if(find==-1)
+									{
+										char printer1[1000];
+										snprintf(printer1,999,"No such variable called %s exists",$1.vali);
+										CallError(printer1);
+										strcpy($$.type,"errortype");
+
+									}
+									else
+									{
+										if(find!=-1 && functable[actfuncindex].vartable[find].dimcount==0)
+										{
+											CallError("Such indexing not possible in simple variables.");
+										}
+										else
+										{
+											if(functable[actfuncindex].vartable[find].dimcount!=$2.bpcount)
+											{
+												CallError("Number of dimensions not matching in array use.");	
+											}
+											else
+											{
+												int getarr = newint();
+												char printer[1000];
+												snprintf(printer,999,"Load t%d %s",getarr,functable[actfuncindex].vartable[find].finalname);
+												GenQuad(printer);
+
+												int getindex = newint();
+												int extra = newint();
+
+												snprintf(printer,999,"t%d = 0",getindex);
+												GenQuad(printer);
+
+												for(int i=0;i<$2.bpcount;i++)
+												{
+													snprintf(printer,999,"t%d = %d",extra,functable[actfuncindex].vartable[find].moddim[i]);
+													GenQuad(printer);
+
+													snprintf(printer,999,"t%d = t%d * t%d",extra,extra,$2.bplist[i]);
+													releaseint($2.bplist[i]);
+													GenQuad(printer);
+
+													snprintf(printer,999,"t%d = t%d + t%d",getindex,getindex,extra);
+													GenQuad(printer);
+												}
+
+												snprintf(printer,999,"t%d = 4",extra);
+												GenQuad(printer);
+												snprintf(printer,999,"t%d = t%d * t%d",getindex,getindex,extra);
+												GenQuad(printer);
+
+												releaseint(extra);
+
+												$$.arr=getarr;
+												$$.ind=getindex;
+												strcpy($$.type,functable[actfuncindex].vartable[find].vartype);
+											}	
+										}
+									}
+								}
+		;
+
+ARRFLIST : ARRFLIST OSQ COR CSQ     {
+										backpatch($3.bplist,$3.bpcount,nextquad);
+										if(strcmp($3.type,"int"))
+										{
+											CallError("Array indices should compute to integers.");
+										}
+										$$.bpcount=0;
+										for(int i=0;i<$1.bpcount;i++)
+										{
+											$$.bplist[$$.bpcount++]=$1.bplist[i];
+										}
+										$$.bplist[$$.bpcount++]=$3.tempreg;
+									}
+		| OSQ COR CSQ 				{
+										backpatch($2.bplist,$2.bpcount,nextquad);
+										if(strcmp($2.type,"int"))
+										{
+											CallError("Array indices should compute to integers.");
+										}
+										$$.bpcount=0;
+
+										$$.bplist[$$.bpcount++]=$2.tempreg;
+									}
+		;
 
 SWITCH : SWITCHET OCURLY CASES CCURLY 		{
 												
@@ -2353,7 +2726,7 @@ CASETEMP : CASET NCASE COR COLON      						{
 																}	
 																backpatch($3.bplist,$3.bpcount,nextquad);
 																char printer[1000];
-																snprintf(printer,999,"if (t%d != t%d) goto _____",switchglobal,$3.tempreg);
+																snprintf(printer,999,"if(t%d != t%d) goto _____",switchglobal,$3.tempreg);
 																$$.bpcount=0;
 																$$.bplist[$$.bpcount++]=nextquad;
 																GenQuad(printer);
@@ -2517,7 +2890,19 @@ void CallWarning(char*s)
 }
 
 void yyerror (char *s) {
+	fclose(fil);
+	fclose(fp);
+
+	printf("Line %d : ",lines+1);
+	success=false;
 	printf("Invalid Syntax while parsing.\n");
+	printf("Error in Compilation.\n");
+	printf("==============================================\n");
+
+	FILE*successf=fopen("Res.txt","w");
+	fprintf(successf,"0");
+	fclose(successf);
+	
 	exit(0);
 }
 
@@ -2560,19 +2945,29 @@ int stoi(char*s)
 	}
 	return ans;
 }
-int main()
+int main(int argc, char const * argv[])
 {
-	FILE*fil=fopen("input.c","r");
+    char filename[100];
+    snprintf(filename,999,"%s",argv[1]);
+    char filename1[100];
+    char filename2[100];
+    snprintf(filename1,999,"%s",argv[2]);
+    snprintf(filename2,999,"%s",argv[3]);
+
+
+	fil=fopen(filename,"r");
 	yyin=fil;
 	int i=0;
 	for(i=0;i<10;i++){
 		intreg[i]=false;
 		floatreg[i]=false;
 	}
-	fp=fopen("iccode.txt","w");
-	fp=fopen("iccode.txt","r+");
+	fp=fopen(filename1,"w+");
 
 	yyparse();
+
+	fclose(fp);
+	fclose(fil);
 
 	if(success)
 		printf("Compilation Successful!!\n");
@@ -2580,11 +2975,24 @@ int main()
 		printf("Error in Compilation.\n");
 
 	printf("==============================================\n");
-	printf("Data Vars:\n");
+
+	FILE*varfile=fopen(filename2,"w");
 	for(int i=0;i<totvars;i++)
 	{
-	printf("%s %s %d\n",vars[i],types[i],sizes[i]);
+	fprintf(varfile,"%s,%s,%d\n",vars[i],types[i],sizes[i]*4);
 	}
+	fclose(varfile);
+
+	FILE*successf=fopen("Res.txt","w");
+	if(success){
+		fprintf(successf,"1");
+	}
+	else
+	{
+		fprintf(successf,"0");
+		
+	}
+	fclose(successf);
 
 	return 0;
 }
