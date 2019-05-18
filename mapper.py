@@ -104,34 +104,10 @@ for i in icode:
 				print("mfc1 $v0, " + checker(vars, y[2]))
 				print("jr $ra", end="")
 		elif y[1] == "refparam":
-			# restore all the registers
-			print("lw $a0, ($sp)")
-			print("lw $a1, 4($sp)")
-			print("lw $a2, 8($sp)")
-			print("lw $a3, 12($sp)")
-			#load all variables in this function to stack
-			for i, local in enumerate(localvars[currentFn]):
-				print("lw $t0, " + str(108 + i*4) + "($sp)")						# load the $ti into the stack
-				print("sw $t0, " + local)
-			#load ti
-			for x in range(0,10):
-				print("lw $t" + str(x) + ", " + str(4*(4+x)) + "($sp)")				# restore the $ti from the stack
-			#load f0-f9 and f20
-			for x in range(10):
-				print("lwc1 $f" + str(x) + ", " + str(4*(14+x)) + "($sp)")			# load the $fi into the stack
-			print("lwc1 $f20, 96($sp)")												# load the $fi into the stack
-			#load s0
-			print("lw $s0, 100($sp)")												# load the $s0 into the stack
-			#load ra
-			print("lw $ra, 104($sp)")												# load the $ra into the stack
-			# pop !!	
-			size = 108 + len(localvars[currentFn])*4
-			print("addi $sp, $sp, " + str(size))
 			if iswordreg(y[2]):									# refparam t0
 				print("move "+checker(vars, y[2])+", $v0", end="")
 			else:												# refparam f0
 				print("mtc1 $v0, "+checker(vars, y[2]), end="")
-			counter = 0
 				
 		elif y[1] == "param":
 			if counter == 0:										    # if we're on the first param, move the stack
@@ -175,7 +151,31 @@ for i in icode:
 				print("lw $t0, " + local)
 				print("sw $t0, " + str(108 + i*4) + "($sp)")						# push the $ti into the stack
 
-			print("jal " + y[2].split(',')[0], end="")
+			print("jal " + y[2].split(',')[0])
+			# restore all the registers
+			print("lw $a0, ($sp)")
+			print("lw $a1, 4($sp)")
+			print("lw $a2, 8($sp)")
+			print("lw $a3, 12($sp)")
+			#load all variables in this function to stack
+			for i, local in enumerate(localvars[currentFn]):
+				print("lw $t0, " + str(108 + i*4) + "($sp)")						# load the $ti into the stack
+				print("sw $t0, " + local)
+			#load ti
+			for x in range(0,10):
+				print("lw $t" + str(x) + ", " + str(4*(4+x)) + "($sp)")				# restore the $ti from the stack
+			#load f0-f9 and f20
+			for x in range(10):
+				print("lwc1 $f" + str(x) + ", " + str(4*(14+x)) + "($sp)")			# load the $fi into the stack
+			print("lwc1 $f20, 96($sp)")												# load the $fi into the stack
+			#load s0
+			print("lw $s0, 100($sp)")												# load the $s0 into the stack
+			#load ra
+			print("lw $ra, 104($sp)")												# load the $ra into the stack
+			# pop !!	
+			size = 108 + len(localvars[currentFn])*4
+			print("addi $sp, $sp, " + str(size), end="")
+			counter = 0
 
 	elif(y[1].startswith("if")):	
 		# print(y)	

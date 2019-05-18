@@ -21,6 +21,8 @@ num {nnum}|{pnum}
 {sp}"float"{sp} {y=1;return FLT;}
 {sp}"void"{sp} {y=1;return VOID;}
 {sp}"printf"{sp} {y=1;return PRINT;}
+{sp}"$$"{sp} {y=1;return DOL;}
+
 
 
 

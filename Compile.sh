@@ -12,6 +12,14 @@ then
 fi
 
 filename=`echo "$1" | cut -f 1 -d '.'` # Get filename without extension
+extension=`echo "$1" | cut -f 2 -d '.'`
+
+if [ ! $extension == "c" ]
+then
+	echo "Not a C file!!"
+	exit 1
+fi
+
 ext2="_Vars.txt"
 ext3="_ICCode.txt"
 ext4="_ASMCode.asm"
@@ -35,6 +43,8 @@ rm parse.tab.o
 
 if [ $? -eq 139 ]; then
     echo "Compiler gives segmentation fault!!"
+    rm $f2
+    rm "ex"
     exit 1
 fi
 
@@ -45,11 +55,18 @@ a=`cat "Res.txt"`
 if [ $a -eq "1" ]
 then
 	python3 mapper.py $f2 $f3> $f4
-	spim -file $f4
+	# spim -file $f4
+	ans=`spim -file $f4`
+	finalans=`echo "$ans" | tail -n+6`
+	echo "Output :"
+	echo "$finalans"
 fi
 rm "Res.txt"
 
 else
 	echo "No result file made!"
 fi
+
+rm $f2
+rm "ex"
 
